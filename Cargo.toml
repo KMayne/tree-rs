@@ -1,0 +1,14 @@
+[package]
+name = "tree-rs"
+version = "0.1.0"
+edition = "2021"
+authors = ["Kian Mayne <arborealis@kianmayne.co.uk>"]
+
+
+[dependencies]
+druid-shell = "0.7.0"
+fixed = "1.19.0"
+phf = { version = "0.11.1", features = ["macros"] }
+[dependencies.uuid]
+version = "1.1.2"
+features = ["v4", "fast-rng"]
