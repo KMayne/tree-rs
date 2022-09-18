@@ -7,7 +7,8 @@ pub enum EdgeType {
 }
 
 pub struct Edge {
-    from_node: Uuid,
-    to_node: Uuid,
-    edge_type: EdgeType,
+    pub(crate) id: Uuid,
+    pub(crate) from_node: Uuid,
+    pub(crate) to_node: Uuid,
+    pub(crate) edge_type: EdgeType,
 }

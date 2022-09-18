@@ -9,6 +9,7 @@ authors = ["Kian Mayne <arborealis@kianmayne.co.uk>"]
 druid = "0.7.0"
 fixed = "1.19.0"
 chrono = "0.4"
+rstar = "0.9.3"
 [dependencies.uuid]
 version = "1.1.2"
 features = ["v4", "fast-rng"]

@@ -1,4 +1,4 @@
-use druid::{Point, Vec2};
+use druid::{Point, Rect, Vec2};
 
 pub struct Viewport {
     pub origin: Point,
@@ -33,6 +33,10 @@ impl Viewport {
 
     pub fn screen_coord_to_scene(&self, point: Point) -> Point {
         ((point.to_vec2() / self.scale) + self.origin.to_vec2()).to_point()
+    }
+
+    pub fn scene_rect_to_screen(&self, rect: Rect) -> Rect {
+        Rect::from((self.scene_coord_to_screen(rect.origin()), self.scene_coord_to_screen(Point::new(rect.x1, rect.y1))))
     }
 }
 

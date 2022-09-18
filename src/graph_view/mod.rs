@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::time::Instant;
 
@@ -10,16 +11,19 @@ use viewport::Viewport;
 
 use crate::graph::Graph;
 use crate::graph::node::Node;
+use crate::graph_view::display_graph::DisplayGraph;
 use crate::graph_view::drag_state::DragState;
 
 mod viewport;
 mod drag_state;
+mod display_graph;
 
 #[derive(Default)]
 pub struct GraphView {
     viewport: Viewport,
     drag_state: Option<DragState>,
-    scene: RefCell<Graph>,
+    display_graph: DisplayGraph,
+    selection: Option<Rect>,
 }
 
 impl GraphView {
@@ -57,21 +61,22 @@ impl GraphView {
         ] { ctx.stroke(line, &Color::BLUE, 2.0 * self.viewport.scale); }
     }
 
+    fn paint_edges(&self, _ctx: &mut PaintCtx) {}
+
     fn paint_nodes(&self, ctx: &mut PaintCtx) {
         const DEFAULT_FONT_SIZE: f64 = 16.0;
-        for n in &self.scene.borrow().nodes {
-            let transformed_rect = &n.rect
-                .with_origin(self.viewport.scene_coord_to_screen(Point::new(n.rect.x0, n.rect.y0)))
-                .with_size(n.rect.size() * self.viewport.scale);
+        for n in self.display_graph.nodes().into_iter() {
+            let node = RefCell::borrow(n.borrow());
+            let transformed_rect = &self.viewport.scene_rect_to_screen(node.rect);
             ctx.stroke(transformed_rect, &Color::BLACK, 2.0 * self.viewport.scale);
             ctx.fill(transformed_rect, &Color::WHITE);
-            let text_layout = ctx.text().new_text_layout(n.text.clone())
+            let text_layout = ctx.text().new_text_layout(node.text.clone())
                 .font(FontFamily::default(), DEFAULT_FONT_SIZE * self.viewport.scale)
                 .max_width(transformed_rect.width() - 8.0 * self.viewport.scale)
                 .alignment(TextAlignment::Center)
                 .build().unwrap();
-            ctx.draw_text(&text_layout, (transformed_rect.x0,
-                                         transformed_rect.y0 + transformed_rect.height() / 2.0 - text_layout.size().height / 2.0))
+            let vertical_align_offset = transformed_rect.height() / 2.0 - text_layout.size().height / 2.0;
+            ctx.draw_text(&text_layout, Point::new(transformed_rect.x0, transformed_rect.y0 + vertical_align_offset))
         }
     }
 }
@@ -79,22 +84,40 @@ impl GraphView {
 impl Widget<String> for GraphView {
     fn event(&mut self, ctx: &mut EventCtx, event: &Event, _data: &mut String, _env: &Env) {
         match event {
-            Event::WindowConnected => { ctx.request_focus(); }
+            Event::WindowConnected => ctx.request_focus(),
             Event::MouseDown(me) => {
-                if me.count >= 2 && me.button.is_left() {
-                    let new_node = Node::new(self.viewport.screen_coord_to_scene(me.pos), None);
-                    self.scene.get_mut().nodes.push(Box::new(new_node));
-                    ctx.request_paint();
-                } else {
-                    self.drag_state = Some(DragState {
-                        buttons: me.buttons,
-                        last_mouse_pos: me.pos,
-                    });
+                let mut drag_state = DragState {
+                    buttons: me.buttons,
+                    last_mouse_pos: me.pos,
+                    has_moved: false,
+                    has_target: false
+                };
+                if me.button.is_left() {
+                    if me.count == 2 {
+                        self.display_graph.add_node(Node::new(self.viewport.screen_coord_to_scene(me.pos), None));
+                        ctx.request_paint();
+                    } else {
+                        let mouse_scene_pos = self.viewport.screen_coord_to_scene(me.pos);
+                        let mut nodes = self.display_graph.get_nodes_at_point((mouse_scene_pos.x, mouse_scene_pos.y));
+                        println!("Clicked {:?}", nodes.iter().map(|n| (**n).borrow()));
+                        if let Some(node) = nodes.pop() {
+                            self.selection = Some((*node).borrow().rect.clone());
+                            drag_state.has_target = true;
+                        }
+                        ctx.request_paint();
+                    }
                 }
+                self.drag_state = Some(drag_state);
             }
-            Event::MouseUp(_me) => {
-                self.drag_state = None;
-            }
+            Event::MouseUp(me) => {
+                if let Some(drag) = &self.drag_state {
+                    if !drag.has_target && !drag.has_moved {
+                        self.selection = None;
+                        ctx.request_paint();
+                    }
+                }
+                self.drag_state = None
+            },
             Event::MouseMove(me) => {
                 match &mut self.drag_state {
                     Some(drag_state) => {
@@ -102,6 +125,7 @@ impl Widget<String> for GraphView {
                             self.viewport.apply_mouse_move(drag_state.last_mouse_pos - me.pos);
                             ctx.request_paint();
                         }
+                        drag_state.has_moved = drag_state.last_mouse_pos != me.pos;
                         drag_state.last_mouse_pos = me.pos;
                         drag_state.buttons = me.buttons;
                     }
@@ -115,9 +139,9 @@ impl Widget<String> for GraphView {
             Event::Zoom(scale_amount) => {
                 self.viewport.apply_scale((ctx.size() / 2.0).to_vec2().to_point(), scale_amount.clone());
             }
-            Event::KeyDown(ke) => {
+            Event::KeyDown(ke) =>
                 if HotKey::new(None, KbKey::Escape).matches(ke) {
-                    self.scene.replace(Graph {
+                    self.display_graph = DisplayGraph::from(Graph {
                         nodes: vec![],
                         edges: vec![],
                     });
@@ -125,26 +149,31 @@ impl Widget<String> for GraphView {
                     ctx.request_paint();
                 } else if HotKey::new(None, "a").matches(ke) {
                     println!("Replacing graph with arborealis graph");
-                    self.scene.replace(Graph {
+                    self.display_graph = DisplayGraph::from(Graph {
                         nodes: vec![
-                            Box::new(Node {
+                            Node {
                                 id: Uuid::new_v4(),
                                 text: String::from("ARBOREALIS"),
                                 rect: Rect::from_origin_size(Point::new(866.0, 184.0), Size::new(197.0, 75.0)),
-                            }),
-                            Box::new(Node {
+                            },
+                            Node {
                                 id: Uuid::new_v4(),
                                 text: String::from("sapling (based on druid-shell)"),
                                 rect: Rect::from_origin_size(Point::new(1592.5, 338.5), Size::new(179.0, 100.0)),
-                            }),
+                            },
+                            Node {
+                                id: Uuid::new_v4(),
+                                text: String::from("selection"),
+                                rect: Rect::from_origin_size(Point::new(1100.0, 300.5), Size::new(100.0, 40.0)),
+                            },
                         ],
                         edges: vec![],
                     });
+                    self.selection = None;
 
                     ctx.set_handled();
                     ctx.request_paint();
                 }
-            }
             _ => ()
         }
     }
@@ -166,13 +195,18 @@ impl Widget<String> for GraphView {
         let start_time = Instant::now();
 
         const BG_COLOR: Color = Color::grey8(0xf0);
+        const HIGHLIGHT_COLOR: Color = Color::rgb8(0x75, 0xa7, 0xf8);
         let paint_area = ctx.size().to_rect();
         ctx.fill(paint_area, &BG_COLOR);
         self.paint_dot_grid(ctx);
         self.paint_origin_marker(ctx);
         self.paint_nodes(ctx);
+        if let Some(selection) = self.selection {
+            ctx.stroke(self.viewport.scene_rect_to_screen(selection),
+                       &HIGHLIGHT_COLOR, 3.0 * self.viewport.scale);
+        }
 
-        let paint_time = (Instant::now() - start_time);
+        let paint_time = Instant::now() - start_time;
         println!("Time to paint: {}, equivalent FPS: {}", paint_time.as_micros(), (1.0 / paint_time.as_secs_f64()).round());
     }
 }
