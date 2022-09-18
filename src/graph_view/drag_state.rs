@@ -1,5 +1,5 @@
 use druid::Point;
-use druid_shell::MouseButtons;
+use druid::MouseButtons;
 
 pub struct DragState {
     pub(crate) buttons: MouseButtons,

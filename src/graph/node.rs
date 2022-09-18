@@ -1,4 +1,4 @@
-use druid_shell::kurbo::{Point, Rect, Size};
+use druid::kurbo::{Point, Rect, Size};
 use uuid::Uuid;
 
 pub struct Node {

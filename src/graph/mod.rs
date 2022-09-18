@@ -1,4 +1,4 @@
-use druid_shell::kurbo::Point;
+use druid::kurbo::Point;
 use crate::graph::edge::Edge;
 use crate::graph::node::Node;
 
