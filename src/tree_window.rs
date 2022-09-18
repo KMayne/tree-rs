@@ -1,5 +1,6 @@
 use std::any::Any;
 use std::cell::RefCell;
+use std::time::Instant;
 
 use druid_shell::{Application, Cursor, KeyEvent, MouseButtons, MouseEvent, Region, TimerToken, WindowHandle, WinHandler};
 use druid_shell::keyboard_types::Key;
@@ -78,6 +79,8 @@ impl WinHandler for TreeWindow {
     fn prepare_paint(&mut self) {}
 
     fn paint(&mut self, piet: &mut Piet, _: &Region) {
+        let start_time = Instant::now();
+
         const BG_COLOR: Color = Color::grey8(0xf0);
         let paint_area = self.size.to_rect();
         // Clear screen
@@ -98,6 +101,9 @@ impl WinHandler for TreeWindow {
                 .build().unwrap();
             piet.draw_text(&text_layout, (transformed_rect.x0, transformed_rect.y0 + transformed_rect.height() / 2.0 - text_layout.size().height / 2.0))
         }
+
+        let paint_time = (Instant::now() - start_time);
+        println!("Time to paint: {}, equivalent FPS: {}", paint_time.as_micros(), (1.0 / paint_time.as_secs_f64()).round());
     }
 
     fn command(&mut self, id: u32) {
