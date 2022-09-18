@@ -2,8 +2,8 @@ use druid_shell::kurbo::Point;
 use crate::graph::edge::Edge;
 use crate::graph::node::Node;
 
-mod edge;
-mod node;
+pub mod edge;
+pub mod node;
 
 #[derive(Default)]
 pub(crate) struct Graph {

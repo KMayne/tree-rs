@@ -4,16 +4,17 @@ use std::cell::RefCell;
 use druid_shell::{Application, Cursor, KeyEvent, MouseButtons, MouseEvent, Region, TimerToken, WindowHandle, WinHandler};
 use druid_shell::keyboard_types::Key;
 use druid_shell::kurbo::{Line, Point, Rect, Size, Vec2};
-use druid_shell::piet::{Color, Piet, RenderContext, StrokeStyle};
+use druid_shell::piet::{Color, FontFamily, Piet, PietText, RenderContext, StrokeStyle, Text, TextAlignment, TextLayout, TextLayoutBuilder};
+use uuid::Uuid;
 
 use crate::graph::Graph;
+use crate::graph::node::Node;
 
 struct DragState {
     buttons: MouseButtons,
     last_mouse_pos: Point,
 }
 
-#[derive(Default)]
 pub(crate) struct TreeWindow {
     scene: RefCell<Graph>,
     view_origin: Point,
@@ -21,13 +22,25 @@ pub(crate) struct TreeWindow {
     size: Size,
     handle: WindowHandle,
     drag_state: Option<DragState>,
+    font: FontFamily,
+    text: PietText,
 }
 
 impl TreeWindow {
     pub(crate) fn new() -> Self {
-        let mut window = TreeWindow::default();
-        window.scale = 1.0;
-        window
+        let win_handle = WindowHandle::default();
+        let mut win_text = win_handle.text();
+        let font = win_text.font_family("Segoe UI").or_else(|| win_text.font_family("Arial")).unwrap().clone();
+        TreeWindow {
+            scene: Default::default(),
+            view_origin: Default::default(),
+            scale: 1.0,
+            size: Default::default(),
+            handle: win_handle,
+            drag_state: Default::default(),
+            text: win_text,
+            font,
+        }
     }
 }
 
@@ -74,7 +87,17 @@ impl WinHandler for TreeWindow {
                               scene_coord_to_screen(Point::new(10.0, 10.0), self.view_origin, self.scale)), &Color::BLUE, 2.0 * self.scale);
         piet.stroke(Line::new(scene_coord_to_screen(Point::new(-10.0, 10.0), self.view_origin, self.scale),
                               scene_coord_to_screen(Point::new(10.0, -10.0), self.view_origin, self.scale)), &Color::BLUE, 2.0 * self.scale);
-
+        for n in &self.scene.borrow().nodes {
+            let transformed_rect = &n.rect.with_origin(scene_coord_to_screen(Point::new(n.rect.x0, n.rect.y0), self.view_origin, self.scale)).with_size(n.rect.size() * self.scale);
+            piet.stroke(transformed_rect, &Color::BLACK, 2.0 * self.scale);
+            piet.fill(transformed_rect, &Color::WHITE);
+            let text_layout = self.text.new_text_layout(n.text.clone())
+                .font(self.font.clone(), 16.0 * self.scale)
+                .max_width(transformed_rect.width() - 8.0 * self.scale)
+                .alignment(TextAlignment::Center)
+                .build().unwrap();
+            piet.draw_text(&text_layout, (transformed_rect.x0, transformed_rect.y0 + transformed_rect.height() / 2.0 - text_layout.size().height / 2.0))
+        }
     }
 
     fn command(&mut self, id: u32) {
@@ -89,8 +112,33 @@ impl WinHandler for TreeWindow {
 
     fn key_down(&mut self, event: KeyEvent) -> bool {
         match event.key {
+            Key::Escape => {
+                self.scene.replace(Graph {
+                    nodes: vec![],
+                    edges: vec![],
+                });
+                self.handle.invalidate();
+                true
+            }
             Key::Character(c) => {
-                println!("{}", c);
+                if c.eq("a") {
+                    self.scene.replace(Graph {
+                        nodes: vec![
+                            Box::new(Node {
+                                id: Uuid::new_v4(),
+                                text: String::from("ARBOREALIS"),
+                                rect: Rect::from_origin_size(Point::new(866.0, 184.0), Size::new(197.0, 75.0)),
+                            }),
+                            Box::new(Node {
+                                id: Uuid::new_v4(),
+                                text: String::from("sapling (based on druid-shell)"),
+                                rect: Rect::from_origin_size(Point::new(1592.5, 338.5), Size::new(179.0, 100.0)),
+                            })
+                        ],
+                        edges: vec![],
+                    });
+                }
+                self.handle.invalidate();
                 true
             }
             _ => {
@@ -132,6 +180,10 @@ impl WinHandler for TreeWindow {
             buttons: event.buttons,
             last_mouse_pos: event.pos,
         });
+        if event.count >= 2 && event.button.is_left() {
+            self.scene.get_mut().nodes.push(Box::new(Node::new(screen_coord_to_scene(event.pos, self.view_origin, self.scale), None)));
+            self.handle.invalidate();
+        }
     }
     fn mouse_up(&mut self, _event: &MouseEvent) {
         self.drag_state = None;

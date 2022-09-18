@@ -4,7 +4,6 @@ use tree_window::TreeWindow;
 
 mod graph;
 mod tree_window;
-mod example_graphs;
 mod display_graph;
 
 fn main() {

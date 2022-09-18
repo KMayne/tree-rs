@@ -2,9 +2,9 @@ use druid_shell::kurbo::{Point, Rect, Size};
 use uuid::Uuid;
 
 pub struct Node {
-    id: Uuid,
-    text: String,
-    rect: Rect,
+    pub(crate) id: Uuid,
+    pub(crate) text: String,
+    pub(crate) rect: Rect,
 }
 
 impl Node {

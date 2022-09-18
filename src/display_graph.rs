@@ -1,3 +1,6 @@
-struct DisplayGraph {
+use crate::graph::Graph;
 
+struct DisplayGraph {
+    graph: Graph,
 }
+
