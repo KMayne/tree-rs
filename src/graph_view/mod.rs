@@ -187,6 +187,6 @@ impl Widget<String> for GraphView {
         }
 
         let paint_time = Instant::now() - start_time;
-        println!("Time to paint: {}, equivalent FPS: {}", paint_time.as_micros(), (1.0 / paint_time.as_secs_f64()).round());
+        println!("Time to paint: {:.3}ms, equivalent FPS: {}", paint_time.as_secs_f64() * 1000.0, (1.0 / paint_time.as_secs_f64()).round());
     }
 }
