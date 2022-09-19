@@ -1,5 +1,3 @@
-use std::borrow::Borrow;
-use std::cell::RefCell;
 use std::time::Instant;
 
 use druid::*;
@@ -66,11 +64,10 @@ impl GraphView {
     fn paint_nodes(&self, ctx: &mut PaintCtx) {
         const DEFAULT_FONT_SIZE: f64 = 16.0;
         for n in self.display_graph.nodes().into_iter() {
-            let node = RefCell::borrow(n.borrow());
-            let transformed_rect = &self.viewport.scene_rect_to_screen(node.rect);
+            let transformed_rect = &self.viewport.scene_rect_to_screen(n.rect);
             ctx.stroke(transformed_rect, &Color::BLACK, 2.0 * self.viewport.scale);
             ctx.fill(transformed_rect, &Color::WHITE);
-            let text_layout = ctx.text().new_text_layout(node.text.clone())
+            let text_layout = ctx.text().new_text_layout(n.text.clone())
                 .font(FontFamily::default(), DEFAULT_FONT_SIZE * self.viewport.scale)
                 .max_width(transformed_rect.width() - 8.0 * self.viewport.scale)
                 .alignment(TextAlignment::Center)
@@ -98,10 +95,9 @@ impl Widget<String> for GraphView {
                         ctx.request_paint();
                     } else {
                         let mouse_scene_pos = self.viewport.screen_coord_to_scene(me.pos);
-                        let mut nodes = self.display_graph.get_nodes_at_point((mouse_scene_pos.x, mouse_scene_pos.y));
-                        println!("Clicked {:?}", nodes.iter().map(|n| (**n).borrow()));
-                        if let Some(node) = nodes.pop() {
-                            self.selection = Some((*node).borrow().rect.clone());
+                        if let Some(node) = self.display_graph.get_mut_node_at_point((mouse_scene_pos.x, mouse_scene_pos.y)) {
+                            self.selection = Some(node.rect.clone());
+                            node.selected = true;
                             drag_state.has_target = true;
                         }
                         ctx.request_paint();
@@ -109,7 +105,7 @@ impl Widget<String> for GraphView {
                 }
                 self.drag_state = Some(drag_state);
             }
-            Event::MouseUp(me) => {
+            Event::MouseUp(_me) => {
                 if let Some(drag) = &self.drag_state {
                     if !drag.has_target && !drag.has_moved {
                         self.selection = None;
