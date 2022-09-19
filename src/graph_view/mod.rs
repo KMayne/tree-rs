@@ -82,8 +82,8 @@ impl GraphView {
     }
 }
 
-impl Widget<String> for GraphView {
-    fn event(&mut self, ctx: &mut EventCtx, event: &Event, _data: &mut String, _env: &Env) {
+impl Widget<()> for GraphView {
+    fn event(&mut self, ctx: &mut EventCtx, event: &Event, _data: &mut (), _env: &Env) {
         match event {
             Event::WindowConnected => ctx.request_focus(),
             Event::MouseDown(me) => {
@@ -157,20 +157,20 @@ impl Widget<String> for GraphView {
         }
     }
 
-    fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, _event: &LifeCycle, _data: &String, _env: &Env) {
+    fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, _event: &LifeCycle, _data: &(), _env: &Env) {
         ctx.register_for_focus();
     }
 
-    fn update(&mut self, _ctx: &mut UpdateCtx, _old_data: &String, _data: &String, _env: &Env) {}
+    fn update(&mut self, _ctx: &mut UpdateCtx, _old_data: &(), _data: &(), _env: &Env) {}
 
-    fn layout(&mut self, _ctx: &mut LayoutCtx, bc: &BoxConstraints, _data: &String, _env: &Env) -> Size {
+    fn layout(&mut self, _ctx: &mut LayoutCtx, bc: &BoxConstraints, _data: &(), _env: &Env) -> Size {
         Size {
             width: (if bc.is_width_bounded() { bc.max().width } else { 100.0 }),
             height: (if bc.is_height_bounded() { bc.max().height } else { 100.0 }),
         }
     }
 
-    fn paint(&mut self, ctx: &mut PaintCtx, _data: &String, _env: &Env) {
+    fn paint(&mut self, ctx: &mut PaintCtx, _data: &(), _env: &Env) {
         let start_time = Instant::now();
 
         const BG_COLOR: Color = Color::grey8(0xf0);

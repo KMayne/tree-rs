@@ -9,6 +9,6 @@ fn main() {
     let main_window = WindowDesc::new(|| GraphView::new()).title("Tree");
     // start the application. Here we pass in the application state.
     AppLauncher::with_window(main_window)
-        .launch(String::new())
+        .launch(())
         .expect("Failed to launch application");
 }
