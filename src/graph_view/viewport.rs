@@ -1,4 +1,5 @@
 use druid::{Point, Rect, Vec2};
+use druid::kurbo::Line;
 
 pub struct Viewport {
     pub origin: Point,
@@ -15,6 +16,10 @@ impl Default for Viewport {
 }
 
 impl Viewport {
+    pub fn line_weight(&self) -> f64 {
+        2.0 * self.scale
+    }
+
     pub fn apply_mouse_move(&mut self, mouse_delta: Vec2) {
         self.origin += mouse_delta / self.scale;
     }
@@ -37,6 +42,10 @@ impl Viewport {
 
     pub fn scene_rect_to_screen(&self, rect: Rect) -> Rect {
         Rect::from((self.scene_coord_to_screen(rect.origin()), self.scene_coord_to_screen(Point::new(rect.x1, rect.y1))))
+    }
+
+    pub fn scene_line_to_screen(&self, line: Line) -> Line {
+        Line::new(self.scene_coord_to_screen(line.p0), self.scene_coord_to_screen(line.p1))
     }
 }
 

@@ -3,11 +3,9 @@ use std::time::Instant;
 use druid::*;
 use druid::kurbo::Line;
 use druid::piet::{StrokeStyle, Text, TextLayout, TextLayoutBuilder};
-use uuid::Uuid;
 
 use viewport::Viewport;
 
-use crate::graph::Graph;
 use crate::graph::node::Node;
 use crate::graph_view::display_graph::DisplayGraph;
 use crate::graph_view::drag_state::DragState;
@@ -15,6 +13,7 @@ use crate::graph_view::drag_state::DragState;
 mod viewport;
 mod drag_state;
 mod display_graph;
+mod example_graphs;
 
 #[derive(Default)]
 pub struct GraphView {
@@ -59,13 +58,18 @@ impl GraphView {
         ] { ctx.stroke(line, &Color::BLUE, 2.0 * self.viewport.scale); }
     }
 
-    fn paint_edges(&self, _ctx: &mut PaintCtx) {}
+    fn paint_edges(&self, ctx: &mut PaintCtx) {
+        for e in self.display_graph.edges().into_iter() {
+            let line = self.viewport.scene_line_to_screen(Line::new(e.start_point, e.end_point));
+            ctx.stroke(line, &Color::BLACK, self.viewport.line_weight());
+        }
+    }
 
     fn paint_nodes(&self, ctx: &mut PaintCtx) {
-        const DEFAULT_FONT_SIZE: f64 = 16.0;
+        const DEFAULT_FONT_SIZE: f64 = 24.0;
         for n in self.display_graph.nodes().into_iter() {
             let transformed_rect = &self.viewport.scene_rect_to_screen(n.rect);
-            ctx.stroke(transformed_rect, &Color::BLACK, 2.0 * self.viewport.scale);
+            ctx.stroke(transformed_rect, &Color::BLACK, self.viewport.line_weight());
             ctx.fill(transformed_rect, &Color::WHITE);
             let text_layout = ctx.text().new_text_layout(n.text.clone())
                 .font(FontFamily::default(), DEFAULT_FONT_SIZE * self.viewport.scale)
@@ -87,7 +91,7 @@ impl Widget<String> for GraphView {
                     buttons: me.buttons,
                     last_mouse_pos: me.pos,
                     has_moved: false,
-                    has_target: false
+                    has_target: false,
                 };
                 if me.button.is_left() {
                     if me.count == 2 {
@@ -113,7 +117,7 @@ impl Widget<String> for GraphView {
                     }
                 }
                 self.drag_state = None
-            },
+            }
             Event::MouseMove(me) => {
                 match &mut self.drag_state {
                     Some(drag_state) => {
@@ -135,41 +139,20 @@ impl Widget<String> for GraphView {
             Event::Zoom(scale_amount) => {
                 self.viewport.apply_scale((ctx.size() / 2.0).to_vec2().to_point(), scale_amount.clone());
             }
-            Event::KeyDown(ke) =>
-                if HotKey::new(None, KbKey::Escape).matches(ke) {
-                    self.display_graph = DisplayGraph::from(Graph {
-                        nodes: vec![],
-                        edges: vec![],
-                    });
-                    ctx.set_handled();
-                    ctx.request_paint();
-                } else if HotKey::new(None, "a").matches(ke) {
-                    println!("Replacing graph with arborealis graph");
-                    self.display_graph = DisplayGraph::from(Graph {
-                        nodes: vec![
-                            Node {
-                                id: Uuid::new_v4(),
-                                text: String::from("ARBOREALIS"),
-                                rect: Rect::from_origin_size(Point::new(866.0, 184.0), Size::new(197.0, 75.0)),
-                            },
-                            Node {
-                                id: Uuid::new_v4(),
-                                text: String::from("sapling (based on druid-shell)"),
-                                rect: Rect::from_origin_size(Point::new(1592.5, 338.5), Size::new(179.0, 100.0)),
-                            },
-                            Node {
-                                id: Uuid::new_v4(),
-                                text: String::from("selection"),
-                                rect: Rect::from_origin_size(Point::new(1100.0, 300.5), Size::new(100.0, 40.0)),
-                            },
-                        ],
-                        edges: vec![],
-                    });
+            Event::KeyDown(ke) => {
+                let maybe_graph =
+                    if HotKey::new(Some(RawMods::Shift), KbKey::Escape).matches(ke) {
+                        Some(DisplayGraph::default())
+                    } else if HotKey::new(Some(RawMods::AltShift), "A").matches(ke) {
+                        Some(example_graphs::arborealis_graph())
+                    } else { None };
+                if let Some(graph) = maybe_graph {
+                    self.display_graph = graph;
                     self.selection = None;
-
                     ctx.set_handled();
                     ctx.request_paint();
                 }
+            }
             _ => ()
         }
     }
@@ -196,6 +179,7 @@ impl Widget<String> for GraphView {
         ctx.fill(paint_area, &BG_COLOR);
         self.paint_dot_grid(ctx);
         self.paint_origin_marker(ctx);
+        self.paint_edges(ctx);
         self.paint_nodes(ctx);
         if let Some(selection) = self.selection {
             ctx.stroke(self.viewport.scene_rect_to_screen(selection),

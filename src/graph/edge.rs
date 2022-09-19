@@ -1,5 +1,6 @@
 use uuid::Uuid;
 
+#[derive(Copy, Clone)]
 pub enum EdgeType {
     Undirected,
     Directional,

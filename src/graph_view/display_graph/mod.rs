@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use druid::Point;
 use rstar::{AABB, PointDistance, RTree, RTreeObject};
 use rstar::primitives::Rectangle;
 use uuid::Uuid;
@@ -7,9 +8,11 @@ use uuid::Uuid;
 use crate::graph::edge::Edge;
 use crate::graph::Graph;
 use crate::graph::node::Node;
+use crate::graph_view::display_graph::edge::DisplayEdge;
 use crate::graph_view::display_graph::node::DisplayNode;
 
 pub(crate) mod node;
+pub(crate) mod edge;
 
 type RPoint = (f64, f64);
 
@@ -24,12 +27,22 @@ struct RegionRef {
     region_type: RegionType,
 }
 
-impl From<&Node> for RegionRef {
-    fn from(n: &Node) -> Self {
+impl From<&DisplayNode> for RegionRef {
+    fn from(n: &DisplayNode) -> Self {
         RegionRef {
             id: n.id,
-            region:  AABB::from_corners((n.rect.x0, n.rect.y0), (n.rect.x1, n.rect.y1)),
-            region_type: RegionType::Node
+            region: AABB::from_corners((n.rect.x0, n.rect.y0), (n.rect.x1, n.rect.y1)),
+            region_type: RegionType::Node,
+        }
+    }
+}
+
+impl From<&DisplayEdge> for RegionRef {
+    fn from(e: &DisplayEdge) -> Self {
+        RegionRef {
+            id: e.id,
+            region: AABB::from_corners(RPoint::from(e.start_point), RPoint::from(e.end_point)),
+            region_type: RegionType::Node,
         }
     }
 }
@@ -43,9 +56,13 @@ impl RTreeObject for RegionRef {
 }
 
 impl PointDistance for RegionRef {
-    fn distance_2(&self, point: &RPoint) -> f64 { Rectangle::from(self.envelope()).distance_2(point) }
+    fn distance_2(&self, point: &RPoint) -> f64 {
+        Rectangle::from(self.envelope()).distance_2(point)
+    }
 
-    fn contains_point(&self, point: &RPoint) -> bool { Rectangle::from(self.envelope()).contains_point(point) }
+    fn contains_point(&self, point: &RPoint) -> bool {
+        Rectangle::from(self.envelope()).contains_point(point)
+    }
 
     fn distance_2_if_less_or_equal(&self, point: &RPoint, max_distance_2: f64) -> Option<f64> {
         Rectangle::from(self.envelope()).distance_2_if_less_or_equal(point, max_distance_2)
@@ -56,7 +73,7 @@ impl PointDistance for RegionRef {
 pub struct DisplayGraph {
     rtree: RTree<RegionRef>,
     nodes: HashMap<Uuid, DisplayNode>,
-    edges: HashMap<Uuid, Edge>,
+    edges: HashMap<Uuid, DisplayEdge>,
 }
 
 impl DisplayGraph {
@@ -74,21 +91,47 @@ impl DisplayGraph {
     }
 
     pub(crate) fn add_node(&mut self, node: Node) {
-        self.rtree.insert(RegionRef::from(&node));
-        self.nodes.insert(node.id, DisplayNode::from(node));
+        let display_node = DisplayNode::from(&node);
+        self.rtree.insert(RegionRef::from(&display_node));
+        self.nodes.insert(display_node.id, display_node);
+    }
+
+    pub(crate) fn add_edge(&mut self, edge: Edge) {
+        let display_edge = DisplayEdge::new(&edge, self.get_node_center(&edge.from_node),
+                                            self.get_node_center(&edge.to_node));
+        self.rtree.insert(RegionRef::from(&display_edge));
+        self.edges.insert(display_edge.id, display_edge);
     }
 
     pub(crate) fn nodes(&self) -> Vec<&DisplayNode> {
         self.nodes.values().collect()
     }
+
+    pub(crate) fn edges(&self) -> Vec<&DisplayEdge> {
+        self.edges.values().collect()
+    }
+
+    fn get_node_center(&self, node_id: &Uuid) -> Point {
+        self.nodes.get(node_id).unwrap().rect.center()
+    }
 }
 
-impl From<Graph> for DisplayGraph {
-    fn from(g: Graph) -> Self {
+impl From<&Graph> for DisplayGraph {
+    fn from(g: &Graph) -> Self {
+        let display_nodes: Vec<DisplayNode> = g.nodes.iter().map(DisplayNode::from).collect();
+        let mut region_refs: Vec<RegionRef> = (&display_nodes).iter().map(RegionRef::from).collect();
+
+        let node_map: HashMap<Uuid, DisplayNode> =
+            display_nodes.into_iter().map(|n| (n.id, n)).collect();
+
+        let display_edges: Vec<DisplayEdge> = g.edges.iter().map(|e|
+            DisplayEdge::new(e, node_map.get(&e.from_node).unwrap().rect.center(),
+                             node_map.get(&e.to_node).unwrap().rect.center())).collect();
+        region_refs.append(&mut (display_edges.iter().map(RegionRef::from).collect()));
         DisplayGraph {
-            rtree: RTree::bulk_load((&g.nodes).into_iter().map(|n| RegionRef::from(n)).collect()),
-            nodes: g.nodes.into_iter().map(|n| (n.id, DisplayNode::from(n))).collect(),
-            edges: g.edges.into_iter().map(|e| (e.id, e)).collect(),
+            rtree: RTree::bulk_load(region_refs),
+            nodes: node_map,
+            edges: display_edges.into_iter().map(|e| (e.id, e)).collect(),
         }
     }
 }
