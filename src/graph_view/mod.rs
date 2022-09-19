@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::time::Instant;
 
 use druid::*;
@@ -9,18 +10,20 @@ use viewport::Viewport;
 use crate::graph::node::Node;
 use crate::graph_view::display_graph::DisplayGraph;
 use crate::graph_view::drag_state::DragState;
+use crate::graph_view::element_ref::ElementRef;
 
 mod viewport;
 mod drag_state;
 mod display_graph;
 mod example_graphs;
+mod element_ref;
 
 #[derive(Default)]
 pub struct GraphView {
     viewport: Viewport,
     drag_state: Option<DragState>,
     display_graph: DisplayGraph,
-    selection: Option<Rect>,
+    selection: HashSet<ElementRef>,
 }
 
 impl GraphView {
@@ -100,7 +103,8 @@ impl Widget<()> for GraphView {
                     } else {
                         let mouse_scene_pos = self.viewport.screen_coord_to_scene(me.pos);
                         if let Some(node) = self.display_graph.get_mut_node_at_point((mouse_scene_pos.x, mouse_scene_pos.y)) {
-                            self.selection = Some(node.rect.clone());
+                            if !me.mods.ctrl() && !me.mods.shift() { self.selection.clear(); }
+                            self.selection.insert(ElementRef::Node(node.id));
                             node.selected = true;
                             drag_state.has_target = true;
                         }
@@ -112,7 +116,7 @@ impl Widget<()> for GraphView {
             Event::MouseUp(_me) => {
                 if let Some(drag) = &self.drag_state {
                     if !drag.has_target && !drag.has_moved {
-                        self.selection = None;
+                        self.selection.clear();
                         ctx.request_paint();
                     }
                 }
@@ -148,7 +152,7 @@ impl Widget<()> for GraphView {
                     } else { None };
                 if let Some(graph) = maybe_graph {
                     self.display_graph = graph;
-                    self.selection = None;
+                    self.selection.clear();
                     ctx.set_handled();
                     ctx.request_paint();
                 }
@@ -181,9 +185,15 @@ impl Widget<()> for GraphView {
         self.paint_origin_marker(ctx);
         self.paint_edges(ctx);
         self.paint_nodes(ctx);
-        if let Some(selection) = self.selection {
-            ctx.stroke(self.viewport.scene_rect_to_screen(selection),
-                       &HIGHLIGHT_COLOR, 3.0 * self.viewport.scale);
+        for elem_ref in &self.selection {
+            match elem_ref {
+                ElementRef::Node(node_id) => {
+                    let selected_node = self.display_graph.get_node(&node_id).unwrap();
+                    ctx.stroke(self.viewport.scene_rect_to_screen(selected_node.rect),
+                               &HIGHLIGHT_COLOR, 3.0 * self.viewport.scale);
+                }
+                ElementRef::Edge(_edge_id) => {}
+            }
         }
 
         let paint_time = Instant::now() - start_time;

@@ -111,6 +111,8 @@ impl DisplayGraph {
         self.edges.values().collect()
     }
 
+    pub(crate) fn get_node(&self, id: &Uuid) -> Option<&DisplayNode> { self.nodes.get(id) }
+
     fn get_node_center(&self, node_id: &Uuid) -> Point {
         self.nodes.get(node_id).unwrap().rect.center()
     }
