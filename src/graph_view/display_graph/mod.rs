@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use druid::Point;
+use druid::{Point, Vec2};
 use rstar::{AABB, PointDistance, RTree, RTreeObject};
 use rstar::primitives::Rectangle;
 use uuid::Uuid;
@@ -96,6 +96,20 @@ impl DisplayGraph {
         self.nodes.insert(display_node.id, display_node);
     }
 
+    pub(crate) fn nodes(&self) -> Vec<&DisplayNode> { self.nodes.values().collect() }
+
+    pub(crate) fn get_node(&self, id: &Uuid) -> Option<&DisplayNode> { self.nodes.get(id) }
+    pub(crate) fn get_mut_node(&mut self, id: &Uuid) -> Option<&mut DisplayNode> { self.nodes.get_mut(id) }
+    pub(crate) fn translate_node(&mut self, id: &Uuid, translation: Vec2) {
+        let node_center = self.get_node_center(id);
+        self.rtree.remove_at_point(&(node_center.x, node_center.y));
+
+        let target_node = self.get_mut_node(id).unwrap();
+        target_node.rect = target_node.rect.with_origin(target_node.rect.origin() + translation);
+        let region_ref = RegionRef::from(&*target_node);
+        self.rtree.insert(region_ref);
+    }
+
     pub(crate) fn add_edge(&mut self, edge: Edge) {
         let display_edge = DisplayEdge::new(&edge, self.get_node_center(&edge.from_node),
                                             self.get_node_center(&edge.to_node));
@@ -103,15 +117,9 @@ impl DisplayGraph {
         self.edges.insert(display_edge.id, display_edge);
     }
 
-    pub(crate) fn nodes(&self) -> Vec<&DisplayNode> {
-        self.nodes.values().collect()
-    }
-
     pub(crate) fn edges(&self) -> Vec<&DisplayEdge> {
         self.edges.values().collect()
     }
-
-    pub(crate) fn get_node(&self, id: &Uuid) -> Option<&DisplayNode> { self.nodes.get(id) }
 
     fn get_node_center(&self, node_id: &Uuid) -> Point {
         self.nodes.get(node_id).unwrap().rect.center()

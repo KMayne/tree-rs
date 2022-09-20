@@ -24,6 +24,7 @@ pub struct GraphView {
     drag_state: Option<DragState>,
     display_graph: DisplayGraph,
     selection: HashSet<ElementRef>,
+    new_edge: Option<Line>
 }
 
 impl GraphView {
@@ -104,9 +105,15 @@ impl Widget<()> for GraphView {
                         let mouse_scene_pos = self.viewport.screen_coord_to_scene(me.pos);
                         if let Some(node) = self.display_graph.get_mut_node_at_point((mouse_scene_pos.x, mouse_scene_pos.y)) {
                             if !me.mods.ctrl() && !me.mods.shift() { self.selection.clear(); }
-                            self.selection.insert(ElementRef::Node(node.id));
-                            node.selected = true;
                             drag_state.has_target = true;
+                            if me.mods.alt() {
+                                self.selection.clear();
+                                self.new_edge = Some(Line::new(node.rect.center(), self.viewport.screen_coord_to_scene(me.pos)));
+                                ctx.request_paint();
+                            } else {
+                                self.selection.insert(ElementRef::Node(node.id));
+                                node.selected = true;
+                            }
                         }
                         ctx.request_paint();
                     }
@@ -118,6 +125,10 @@ impl Widget<()> for GraphView {
                     if !drag.has_target && !drag.has_moved {
                         self.selection.clear();
                         ctx.request_paint();
+                    } else if self.new_edge.is_some() {
+                        // TODO: Handle creating new edge
+                        self.new_edge = None;
+                        ctx.request_paint();
                     }
                 }
                 self.drag_state = None
@@ -125,9 +136,25 @@ impl Widget<()> for GraphView {
             Event::MouseMove(me) => {
                 match &mut self.drag_state {
                     Some(drag_state) => {
-                        if drag_state.buttons.has_left() {
-                            self.viewport.apply_mouse_move(drag_state.last_mouse_pos - me.pos);
+                        let mouse_move = drag_state.last_mouse_pos - me.pos;
+                        if drag_state.buttons.has_left() && !drag_state.has_target {
+                            self.viewport.apply_mouse_move(mouse_move);
                             ctx.request_paint();
+                        } else if drag_state.has_target {
+                            if let Some(ref mut edge) = &mut self.new_edge {
+                                edge.p1 = self.viewport.screen_coord_to_scene(me.pos);
+                                ctx.request_paint();
+                            } else {
+                                for elem_ref in &self.selection {
+                                    match elem_ref {
+                                        ElementRef::Node(node_id) => {
+                                            self.display_graph.translate_node(node_id, -mouse_move / self.viewport.scale);
+                                        }
+                                        ElementRef::Edge(_) => {}
+                                    }
+                                }
+                                ctx.request_paint();
+                            }
                         }
                         drag_state.has_moved = drag_state.last_mouse_pos != me.pos;
                         drag_state.last_mouse_pos = me.pos;
@@ -184,6 +211,9 @@ impl Widget<()> for GraphView {
         self.paint_dot_grid(ctx);
         self.paint_origin_marker(ctx);
         self.paint_edges(ctx);
+        if let Some(edge) = self.new_edge {
+            ctx.stroke(self.viewport.scene_line_to_screen(edge), &Color::BLACK, self.viewport.line_weight());
+        }
         self.paint_nodes(ctx);
         for elem_ref in &self.selection {
             match elem_ref {
