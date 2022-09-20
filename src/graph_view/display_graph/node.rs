@@ -1,10 +1,10 @@
 use druid::Rect;
-use uuid::Uuid;
-use crate::graph::node::Node;
+
+use crate::graph::node::{Node, NodeId};
 
 #[derive(Debug)]
 pub(crate) struct DisplayNode {
-    pub id: Uuid,
+    pub id: NodeId,
     pub text: String,
     pub rect: Rect,
     pub selected: bool,

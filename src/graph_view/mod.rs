@@ -10,20 +10,20 @@ use viewport::Viewport;
 use crate::graph::node::Node;
 use crate::graph_view::display_graph::DisplayGraph;
 use crate::graph_view::drag_state::DragState;
-use crate::graph_view::element_ref::ElementRef;
+use crate::graph_view::element_id::ElementId;
 
 mod viewport;
 mod drag_state;
 mod display_graph;
 mod example_graphs;
-mod element_ref;
+mod element_id;
 
 #[derive(Default)]
 pub struct GraphView {
     viewport: Viewport,
     drag_state: Option<DragState>,
     display_graph: DisplayGraph,
-    selection: HashSet<ElementRef>,
+    selection: HashSet<ElementId>,
     new_edge: Option<Line>
 }
 
@@ -111,7 +111,7 @@ impl Widget<()> for GraphView {
                                 self.new_edge = Some(Line::new(node.rect.center(), self.viewport.screen_coord_to_scene(me.pos)));
                                 ctx.request_paint();
                             } else {
-                                self.selection.insert(ElementRef::Node(node.id));
+                                self.selection.insert(ElementId::Node(node.id));
                                 node.selected = true;
                             }
                         }
@@ -147,10 +147,10 @@ impl Widget<()> for GraphView {
                             } else {
                                 for elem_ref in &self.selection {
                                     match elem_ref {
-                                        ElementRef::Node(node_id) => {
+                                        ElementId::Node(node_id) => {
                                             self.display_graph.translate_node(node_id, -mouse_move / self.viewport.scale);
                                         }
-                                        ElementRef::Edge(_) => {}
+                                        ElementId::Edge(_) => {}
                                     }
                                 }
                                 ctx.request_paint();
@@ -217,12 +217,12 @@ impl Widget<()> for GraphView {
         self.paint_nodes(ctx);
         for elem_ref in &self.selection {
             match elem_ref {
-                ElementRef::Node(node_id) => {
+                ElementId::Node(node_id) => {
                     let selected_node = self.display_graph.get_node(&node_id).unwrap();
                     ctx.stroke(self.viewport.scene_rect_to_screen(selected_node.rect),
                                &HIGHLIGHT_COLOR, 3.0 * self.viewport.scale);
                 }
-                ElementRef::Edge(_edge_id) => {}
+                ElementId::Edge(_edge_id) => {}
             }
         }
 
