@@ -16,12 +16,6 @@ pub(crate) mod edge;
 
 type RPoint = (f64, f64);
 
-#[derive(Eq, PartialEq)]
-enum RegionType {
-    Node,
-    Edge,
-}
-
 struct RegionRef {
     id: ElementId,
     region: AABB<RPoint>,
@@ -138,7 +132,7 @@ impl DisplayGraph {
             let moved_edge = self.edges.get_mut(&edge_id).unwrap();
             if &moved_edge.from_node == node_id {
                 moved_edge.start_point = new_node_center.clone();
-            } else {
+            } else if &moved_edge.to_node == node_id {
                 moved_edge.end_point = new_node_center.clone();
             }
             self.rtree.insert(RegionRef::from(&*moved_edge));

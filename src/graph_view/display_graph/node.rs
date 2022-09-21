@@ -7,7 +7,6 @@ pub(crate) struct DisplayNode {
     pub id: NodeId,
     pub text: String,
     pub rect: Rect,
-    pub selected: bool,
 }
 
 impl From<&Node> for DisplayNode {
@@ -16,7 +15,6 @@ impl From<&Node> for DisplayNode {
             id: node.id,
             text: node.text.clone(),
             rect: node.rect,
-            selected: false,
         }
     }
 }

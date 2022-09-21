@@ -116,7 +116,6 @@ impl Widget<()> for GraphView {
                                 ctx.request_paint();
                             } else {
                                 self.selection.insert(ElementId::Node(node.id));
-                                node.selected = true;
                             }
                         }
                         ctx.request_paint();

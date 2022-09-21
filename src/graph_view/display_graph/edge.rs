@@ -10,7 +10,6 @@ pub(crate) struct DisplayEdge {
     pub(crate) edge_type: EdgeType,
     pub(crate) start_point: Point,
     pub(crate) end_point: Point,
-    pub(crate) selected: bool
 }
 impl DisplayEdge {
     pub fn new(edge: &Edge, start_point: Point, end_point: Point) -> Self {
@@ -20,8 +19,7 @@ impl DisplayEdge {
             to_node: edge.to_node_id,
             edge_type: edge.edge_type,
             start_point,
-            end_point,
-            selected: false
+            end_point
         }
     }
 }
