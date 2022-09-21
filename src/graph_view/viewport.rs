@@ -47,5 +47,9 @@ impl Viewport {
     pub fn scene_line_to_screen(&self, line: Line) -> Line {
         Line::new(self.scene_coord_to_screen(line.p0), self.scene_coord_to_screen(line.p1))
     }
+
+    pub fn screen_line_to_scene(&self, line: Line) -> Line {
+        Line::new(self.screen_coord_to_scene(line.p0), self.screen_coord_to_scene(line.p1))
+    }
 }
 

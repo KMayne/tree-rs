@@ -4,26 +4,29 @@ use std::time::Instant;
 use druid::*;
 use druid::kurbo::Line;
 use druid::piet::{StrokeStyle, Text, TextLayout, TextLayoutBuilder};
+use uuid::Uuid;
 
 use viewport::Viewport;
 
-use crate::graph::node::Node;
+use crate::graph::edge::{Edge, EdgeId, EdgeType};
+use crate::graph::node::{Node, NodeId};
 use crate::graph_view::display_graph::DisplayGraph;
 use crate::graph_view::drag_state::DragState;
-use crate::graph_view::element_ref::ElementRef;
+use crate::graph_view::element_id::ElementId;
 
 mod viewport;
 mod drag_state;
 mod display_graph;
 mod example_graphs;
-mod element_ref;
+mod element_id;
 
 #[derive(Default)]
 pub struct GraphView {
     viewport: Viewport,
     drag_state: Option<DragState>,
     display_graph: DisplayGraph,
-    selection: HashSet<ElementRef>,
+    selection: HashSet<ElementId>,
+    new_edge: Option<(NodeId, Line)>,
 }
 
 impl GraphView {
@@ -103,20 +106,39 @@ impl Widget<()> for GraphView {
                     } else {
                         let mouse_scene_pos = self.viewport.screen_coord_to_scene(me.pos);
                         if let Some(node) = self.display_graph.get_mut_node_at_point((mouse_scene_pos.x, mouse_scene_pos.y)) {
-                            if !me.mods.ctrl() && !me.mods.shift() { self.selection.clear(); }
-                            self.selection.insert(ElementRef::Node(node.id));
-                            node.selected = true;
+                            let node_selected = self.selection.contains(&ElementId::Node(node.id));
+                            if !me.mods.ctrl() && !me.mods.shift() && !node_selected { self.selection.clear(); }
                             drag_state.has_target = true;
+                            if me.mods.alt() {
+                                // Start new edge
+                                self.selection.clear();
+                                self.new_edge = Some((node.id, Line::new(node.rect.center(), self.viewport.screen_coord_to_scene(me.pos))));
+                                ctx.request_paint();
+                            } else {
+                                self.selection.insert(ElementId::Node(node.id));
+                            }
                         }
                         ctx.request_paint();
                     }
                 }
                 self.drag_state = Some(drag_state);
             }
-            Event::MouseUp(_me) => {
+            Event::MouseUp(me) => {
                 if let Some(drag) = &self.drag_state {
                     if !drag.has_target && !drag.has_moved {
                         self.selection.clear();
+                        ctx.request_paint();
+                    } else if let Some((start_node_id, _)) = self.new_edge {
+                        let mouse_scene_pos = self.viewport.screen_coord_to_scene(me.pos);
+                        if let Some(end_node) = self.display_graph.get_node_at_point((mouse_scene_pos.x, mouse_scene_pos.y)) {
+                            self.display_graph.add_edge(Edge {
+                                id: EdgeId(Uuid::new_v4()),
+                                from_node_id: start_node_id,
+                                to_node_id: end_node.id,
+                                edge_type: EdgeType::Undirected,
+                            });
+                        }
+                        self.new_edge = None;
                         ctx.request_paint();
                     }
                 }
@@ -125,9 +147,28 @@ impl Widget<()> for GraphView {
             Event::MouseMove(me) => {
                 match &mut self.drag_state {
                     Some(drag_state) => {
-                        if drag_state.buttons.has_left() {
-                            self.viewport.apply_mouse_move(drag_state.last_mouse_pos - me.pos);
+                        let mouse_move = drag_state.last_mouse_pos - me.pos;
+                        if drag_state.buttons.has_left() && !drag_state.has_target {
+                            self.viewport.apply_mouse_move(mouse_move);
                             ctx.request_paint();
+                        } else if drag_state.has_target {
+                            if let Some((_, ref mut line)) = &mut self.new_edge {
+                                line.p1 = self.viewport.screen_coord_to_scene(me.pos);
+                                ctx.request_paint();
+                            } else {
+                                for elem_ref in &self.selection {
+                                    match elem_ref {
+                                        ElementId::Node(node_id) => {
+                                            /* TODO: Easy optimisation here would be to avoid having to update the data structures
+                                                on every single mouse move. Instead, could simply filter out actual nodes from
+                                                normal paint and paint the nodes being dragged separately. */
+                                            self.display_graph.translate_node(node_id, -mouse_move / self.viewport.scale);
+                                        }
+                                        ElementId::Edge(_) => {}
+                                    }
+                                }
+                                ctx.request_paint();
+                            }
                         }
                         drag_state.has_moved = drag_state.last_mouse_pos != me.pos;
                         drag_state.last_mouse_pos = me.pos;
@@ -184,15 +225,18 @@ impl Widget<()> for GraphView {
         self.paint_dot_grid(ctx);
         self.paint_origin_marker(ctx);
         self.paint_edges(ctx);
+        if let Some((_, line)) = self.new_edge {
+            ctx.stroke(self.viewport.scene_line_to_screen(line), &Color::BLACK, self.viewport.line_weight());
+        }
         self.paint_nodes(ctx);
         for elem_ref in &self.selection {
             match elem_ref {
-                ElementRef::Node(node_id) => {
+                ElementId::Node(node_id) => {
                     let selected_node = self.display_graph.get_node(&node_id).unwrap();
                     ctx.stroke(self.viewport.scene_rect_to_screen(selected_node.rect),
                                &HIGHLIGHT_COLOR, 3.0 * self.viewport.scale);
                 }
-                ElementRef::Edge(_edge_id) => {}
+                ElementId::Edge(_edge_id) => {}
             }
         }
 
