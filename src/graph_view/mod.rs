@@ -104,13 +104,15 @@ impl Widget<()> for GraphView {
                     } else {
                         let mouse_scene_pos = self.viewport.screen_coord_to_scene(me.pos);
                         if let Some(node) = self.display_graph.get_mut_node_at_point((mouse_scene_pos.x, mouse_scene_pos.y)) {
-                            if !me.mods.ctrl() && !me.mods.shift() { self.selection.clear(); }
+                            if !me.mods.ctrl() && !me.mods.shift() && !self.selection.contains(&ElementId::Node(node.id)) { self.selection.clear(); }
                             drag_state.has_target = true;
                             if me.mods.alt() {
+                                // Draw new line
                                 self.selection.clear();
                                 self.new_edge = Some(Line::new(node.rect.center(), self.viewport.screen_coord_to_scene(me.pos)));
                                 ctx.request_paint();
                             } else {
+                                // Select the node
                                 self.selection.insert(ElementId::Node(node.id));
                                 node.selected = true;
                             }
@@ -148,6 +150,9 @@ impl Widget<()> for GraphView {
                                 for elem_ref in &self.selection {
                                     match elem_ref {
                                         ElementId::Node(node_id) => {
+                                            /* TODO: Easy optimisation here would be to avoid having to update the data structures
+                                                on every single mouse move. Instead, could simply filter out actual nodes from
+                                                normal paint and paint the nodes being dragged separately. */
                                             self.display_graph.translate_node(node_id, -mouse_move / self.viewport.scale);
                                         }
                                         ElementId::Edge(_) => {}

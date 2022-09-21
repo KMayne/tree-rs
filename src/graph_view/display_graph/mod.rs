@@ -78,7 +78,7 @@ pub struct DisplayGraph {
     rtree: RTree<RegionRef>,
     nodes: HashMap<NodeId, DisplayNode>,
     edges: HashMap<EdgeId, DisplayEdge>,
-    node_edges: HashMap<NodeId, Vec<Edge>>,
+    node_edges: HashMap<NodeId, Vec<EdgeId>>,
 }
 
 impl DisplayGraph {
@@ -103,14 +103,43 @@ impl DisplayGraph {
 
     pub(crate) fn nodes(&self) -> Vec<&DisplayNode> { self.nodes.values().collect() }
 
-    pub(crate) fn get_node(&self, id: &NodeId) -> Option<&DisplayNode> { self.nodes.get(id) }
-    pub(crate) fn get_mut_node(&mut self, id: &NodeId) -> Option<&mut DisplayNode> { self.nodes.get_mut(id) }
-    pub(crate) fn translate_node(&mut self, id: &NodeId, translation: Vec2) {
-        self.rtree.remove(&RegionRef::from(self.get_node(id).unwrap()));
-        let target_node = self.get_mut_node(id).unwrap();
-        target_node.rect = target_node.rect.with_origin(target_node.rect.origin() + translation);
-        let region_ref = RegionRef::from(&*target_node);
-        self.rtree.insert(region_ref);
+    pub(crate) fn get_node(&self, node_id: &NodeId) -> Option<&DisplayNode> {
+        self.nodes.get(node_id)
+    }
+    pub(crate) fn get_mut_node(&mut self, node_id: &NodeId) -> Option<&mut DisplayNode> {
+        self.nodes.get_mut(node_id)
+    }
+    pub(crate) fn translate_node(&mut self, node_id: &NodeId, translation: Vec2) {
+        // Update node with translation & reinsert it
+        // TODO: Is there a nicer way to phrase this?
+        let new_node_center = {
+            let target_node = self.get_mut_node(node_id).unwrap();
+            target_node.rect = target_node.rect.with_origin(target_node.rect.origin() + translation);
+            let new_node_center = (&target_node).rect.center().clone();
+            let node_region_ref = RegionRef::from(&*target_node);
+            self.rtree.insert(node_region_ref);
+            new_node_center
+        };
+
+        // TODO: Surely there's a better way to do this
+        const EMPTY_EDGE_LIST: &Vec<EdgeId> = &vec![];
+        // TODO: This is absurd I should find a way to avoid having to copy this vec
+        let affected_edge_ids = self.node_edges.get(node_id).unwrap_or(EMPTY_EDGE_LIST).clone();
+        // Remove affected node and connected edges from the R-Tree
+        self.rtree.remove(&RegionRef::from(self.get_node(node_id).unwrap()));
+        for edge_id in &affected_edge_ids {
+            self.rtree.remove(&RegionRef::from(self.edges.get(&edge_id).unwrap()));
+        }
+        // Update the edges and reinsert them into the R-Tree
+        for edge_id in &affected_edge_ids {
+            let moved_edge = self.edges.get_mut(&edge_id).unwrap();
+            if &moved_edge.from_node == node_id {
+                moved_edge.start_point = new_node_center.clone();
+            } else {
+                moved_edge.end_point = new_node_center.clone();
+            }
+            self.rtree.insert(RegionRef::from(&*moved_edge));
+        }
     }
 
     pub(crate) fn add_edge(&mut self, edge: Edge) {
@@ -141,18 +170,10 @@ impl From<&Graph> for DisplayGraph {
             DisplayEdge::new(e, node_map.get(&e.from_node_id).unwrap().rect.center(),
                              node_map.get(&e.to_node_id).unwrap().rect.center())).collect();
 
-        let mut node_edges: HashMap<NodeId, Vec<Edge>> = HashMap::new();
+        let mut node_edges: HashMap<NodeId, Vec<EdgeId>> = HashMap::new();
         for edge in &g.edges {
-            if let Some(node_edge) = node_edges.get_mut(&edge.from_node_id) {
-                node_edge.push(edge.clone())
-            } else {
-                node_edges.insert(edge.from_node_id, vec![edge.clone()]);
-            }
-            if let Some(node_edge) = node_edges.get_mut(&edge.to_node_id) {
-                node_edge.push(edge.clone())
-            } else {
-                node_edges.insert(edge.to_node_id, vec![edge.clone()]);
-            }
+            node_edges.entry(edge.from_node_id).and_modify(|vec| vec.push(edge.id)).or_insert(vec![edge.id]);
+            node_edges.entry(edge.to_node_id).and_modify(|vec| vec.push(edge.id)).or_insert(vec![edge.id]);
         }
         region_refs.append(&mut (display_edges.iter().map(RegionRef::from).collect()));
         DisplayGraph {
