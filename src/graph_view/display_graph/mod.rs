@@ -82,19 +82,6 @@ pub struct DisplayGraph {
 }
 
 impl DisplayGraph {
-    pub(crate) fn get_mut_node_at_point(&mut self, p: RPoint) -> Option<&mut DisplayNode> {
-        let node_id = self.rtree.locate_all_at_point(&p).filter_map(|r|
-            match r.id {
-                ElementId::Node(node_id) => Some(node_id),
-                _ => None
-            }).next();
-        if let Some(node_id) = node_id {
-            self.nodes.get_mut(&node_id)
-        } else {
-            None
-        }
-    }
-
     pub(crate) fn add_node(&mut self, node: Node) {
         let display_node = DisplayNode::from(&node);
         self.rtree.insert(RegionRef::from(&display_node));
@@ -109,6 +96,22 @@ impl DisplayGraph {
     pub(crate) fn get_mut_node(&mut self, node_id: &NodeId) -> Option<&mut DisplayNode> {
         self.nodes.get_mut(node_id)
     }
+
+    pub(crate) fn get_node_at_point(&self, point: RPoint) -> Option<&DisplayNode> {
+        if let Some(node_id) = self.get_node_id_at_point(&point) {
+            self.nodes.get(&node_id)
+        } else {
+            None
+        }
+    }
+    pub(crate) fn get_mut_node_at_point(&mut self, point: RPoint) -> Option<&mut DisplayNode> {
+        if let Some(node_id) = self.get_node_id_at_point(&point) {
+            self.nodes.get_mut(&node_id)
+        } else {
+            None
+        }
+    }
+
     pub(crate) fn translate_node(&mut self, node_id: &NodeId, translation: Vec2) {
         // Update node with translation & reinsert it
         // TODO: Is there a nicer way to phrase this?
@@ -147,6 +150,8 @@ impl DisplayGraph {
                                             self.get_node_center(&edge.to_node_id));
         self.rtree.insert(RegionRef::from(&display_edge));
         self.edges.insert(display_edge.id, display_edge);
+        self.node_edges.entry(edge.from_node_id).and_modify(|vec| vec.push(edge.id)).or_insert(vec![edge.id]);
+        self.node_edges.entry(edge.to_node_id).and_modify(|vec| vec.push(edge.id)).or_insert(vec![edge.id]);
     }
 
     pub(crate) fn edges(&self) -> Vec<&DisplayEdge> {
@@ -155,6 +160,14 @@ impl DisplayGraph {
 
     fn get_node_center(&self, node_id: &NodeId) -> Point {
         self.nodes.get(node_id).unwrap().rect.center()
+    }
+
+    fn get_node_id_at_point(&self, point: &RPoint) -> Option<NodeId> {
+        self.rtree.locate_all_at_point(point).filter_map(|r|
+            match r.id {
+                ElementId::Node(node_id) => Some(node_id),
+                _ => None
+            }).next()
     }
 }
 
