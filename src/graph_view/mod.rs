@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use viewport::Viewport;
 
-use crate::graph::edge::{Edge, EdgeId, EdgeType};
+use crate::graph::edge::{Edge, EdgeId};
 use crate::graph::node::{Node, NodeId};
 use crate::graph_view::display_graph::DisplayGraph;
 use crate::graph_view::drag_state::DragState;
@@ -135,7 +135,6 @@ impl Widget<()> for GraphView {
                                 id: EdgeId(Uuid::new_v4()),
                                 from_node_id: start_node_id,
                                 to_node_id: end_node.id,
-                                edge_type: EdgeType::Undirected,
                             });
                         }
                         self.new_edge = None;

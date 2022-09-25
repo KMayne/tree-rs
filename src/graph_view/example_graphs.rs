@@ -1,6 +1,6 @@
 use druid::{Point, Rect, Size};
 use uuid::Uuid;
-use crate::graph::edge::{Edge, EdgeId, EdgeType};
+use crate::graph::edge::{Edge, EdgeId};
 use crate::graph::Graph;
 use crate::graph::node::{Node, NodeId};
 use crate::graph_view::display_graph::DisplayGraph;
@@ -72,61 +72,61 @@ pub(crate) fn arborealis_graph() -> DisplayGraph {
                 id: EdgeId(Uuid::new_v4()),
                 from_node_id: leaf_id,
                 to_node_id: root_id,
-                edge_type: EdgeType::Bidirectional
+                // edge_type: EdgeType::Bidirectional
             },
             Edge {
                 id: EdgeId(Uuid::new_v4()),
                 from_node_id: tree_rs_id,
                 to_node_id: sapling_id,
-                edge_type: EdgeType::Directional
+                // edge_type: EdgeType::Directional
             },
             Edge {
                 id: EdgeId(Uuid::new_v4()),
                 from_node_id: arboretum_id,
                 to_node_id: sapling_id,
-                edge_type: EdgeType::Directional
+                // edge_type: EdgeType::Directional
             },
             Edge {
                 id: EdgeId(Uuid::new_v4()),
                 from_node_id: sector_9_id,
                 to_node_id: tree_rs_id,
-                edge_type: EdgeType::Directional
+                // edge_type: EdgeType::Directional
             },
             Edge {
                 id: EdgeId(Uuid::new_v4()),
                 from_node_id: tree_rs_id,
                 to_node_id: seed_rs_id,
-                edge_type: EdgeType::Directional
+                // edge_type: EdgeType::Directional
             },
             Edge {
                 id: EdgeId(Uuid::new_v4()),
                 from_node_id: seed_rs_id,
                 to_node_id: root_id,
-                edge_type: EdgeType::Bidirectional
+                // edge_type: EdgeType::Bidirectional
             },
             Edge {
                 id: EdgeId(Uuid::new_v4()),
                 from_node_id: arboretum_id,
                 to_node_id: seed_rs_id,
-                edge_type: EdgeType::Directional
+                // edge_type: EdgeType::Directional
             },
             Edge {
                 id: EdgeId(Uuid::new_v4()),
                 from_node_id: seed_rs_id,
                 to_node_id: automerge_id,
-                edge_type: EdgeType::Directional
+                // edge_type: EdgeType::Directional
             },
             Edge {
                 id: EdgeId(Uuid::new_v4()),
                 from_node_id: root_id,
                 to_node_id: automerge_id,
-                edge_type: EdgeType::Directional
+                // edge_type: EdgeType::Directional
             },
             Edge {
                 id: EdgeId(Uuid::new_v4()),
                 from_node_id: leaf_id,
                 to_node_id: automerge_id,
-                edge_type: EdgeType::Directional
+                // edge_type: EdgeType::Directional
             }
         ]
     })
