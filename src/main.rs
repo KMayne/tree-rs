@@ -4,6 +4,7 @@ use crate::graph_view::GraphView;
 
 mod graph;
 mod graph_view;
+mod simple_widget;
 
 fn main() {
     let main_window = WindowDesc::new(|| GraphView::new()).title("Tree");

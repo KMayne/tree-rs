@@ -19,6 +19,7 @@ mod drag_state;
 mod display_graph;
 mod example_graphs;
 mod element_id;
+mod node_widget;
 
 #[derive(Default)]
 pub struct GraphView {
