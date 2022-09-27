@@ -4,6 +4,7 @@ use std::time::Instant;
 use druid::*;
 use druid::kurbo::Line;
 use druid::piet::{StrokeStyle, Text, TextLayout, TextLayoutBuilder};
+use druid::widget::TextBox;
 use uuid::Uuid;
 
 use viewport::Viewport;
@@ -77,6 +78,10 @@ impl GraphView {
             let transformed_rect = &self.viewport.scene_rect_to_screen(n.rect);
             ctx.stroke(transformed_rect, &Color::BLACK, self.viewport.line_weight());
             ctx.fill(transformed_rect, &Color::WHITE);
+            let mut textbox: TextBox<String> = TextBox::multiline().with_text_size(DEFAULT_FONT_SIZE * self.viewport.scale).with_text_alignment(TextAlignment::Center);
+            textbox.layout();
+            textbox.paint(ctx.with_child_ctx(Region::from()), &n.text, &Env::default());
+            /*
             let text_layout = ctx.text().new_text_layout(n.text.clone())
                 .font(FontFamily::default(), DEFAULT_FONT_SIZE * self.viewport.scale)
                 .max_width(transformed_rect.width() - 8.0 * self.viewport.scale)
@@ -84,6 +89,7 @@ impl GraphView {
                 .build().unwrap();
             let vertical_align_offset = transformed_rect.height() / 2.0 - text_layout.size().height / 2.0;
             ctx.draw_text(&text_layout, Point::new(transformed_rect.x0, transformed_rect.y0 + vertical_align_offset))
+             */
         }
     }
 }
@@ -101,7 +107,10 @@ impl Widget<()> for GraphView {
                 };
                 if me.button.is_left() {
                     if me.count == 2 {
-                        self.display_graph.add_node(Node::new(self.viewport.screen_coord_to_scene(me.pos), None));
+                        let mouse_scene_pos = self.viewport.screen_coord_to_scene(me.pos);
+                        if let Some(node) = self.display_graph.get_mut_node_at_point((mouse_scene_pos.x, mouse_scene_pos.y)) {} else {
+                            self.display_graph.add_node(Node::new(self.viewport.screen_coord_to_scene(me.pos), None));
+                        }
                         ctx.request_paint();
                     } else {
                         let mouse_scene_pos = self.viewport.screen_coord_to_scene(me.pos);
